@@ -1,26 +1,31 @@
 # Samknows Data Analyst Tech Test
 
-Please add your solution code for the following questions. Throughout, the main things being assessed are:
-  * Design        e.g. variable names, code readability, having a logical flow and process
-  * Data quality  e.g. paying attention to outliers, missing data etc.
-  * Explanations  e.g. justifying your approach
+Please add your solution code for the following questions to `R/samknows_data_analyst_tech_test.R`. 
+
+Throughout, the main things being assessed are:
+
+* Design        e.g. variable names, code readability, having a logical flow and process, labeling of graphs
+* Data quality  e.g. paying attention to outliers, missing data etc.
+* Explanations  e.g. justifying your approach, comments in the code file will be sufficient
+  
+We are looking for a well-commented code file, and requested outputs saved in `output/`. 
+
+Of course if you find it easier to use *rmarkdown* to provide explanations/justifications in a report format that will also be more than acceptable. 
 
 ## 1 - Packages
 Load any relevant packages for reshaping data, joining, visualization, and handling datetimes.
 
-Consider carefully which packages you need to use.
-
 ## 2 - Data Import and Cleaning
 The files you will need are:
 
-  * `data/download_speed_measurements.csv`
-  * `data/upload_speed_measurements.csv`
-  * `data/details_for_each_person.csv`
+* `data/download_speed_measurements.csv`
+* `data/upload_speed_measurements.csv`
+* `data/details_for_each_person.csv`
   
 Field descriptions are in `DATA_DICTIONARY.md`.
 
 a) Please import each of these files and combine them into a single table which:
-    has the structure: person_id, country, city, type_of_broadband_connection, name_of_isp, average_download_speed, average_upload_speed
+    has the structure: person_id, country, city, type_of_broadband_connection, name_of_isp, average_download_speed,   average_upload_speed
     has 1 line per person (i.e. calculate a single average download and upload speed for each person)
     only contains people in the cities 'Samsville' and 'Databury'
     only contains download and upload measurements which have run successfully (i.e. put a filter on did_test_complete_successfully)
