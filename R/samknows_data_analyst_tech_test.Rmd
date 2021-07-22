@@ -1,0 +1,209 @@
+---
+title: "SamKnows Data Analyst Tech Test"
+author: "Tahmeed Hossain"
+date: "20/07/2021"
+output:
+  pdf_document: default
+  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#----------------loading packages
+library(readr)
+library(dplyr)
+library(qwraps2)
+library(knitr)
+library(ggplot2)
+library(lubridate)
+
+#----------------Setting working directory
+setwd("~/Desktop/SamKnows/data-analyst-test")
+
+#---------------- Loading data in the environment
+download <- read_csv("data/download_speed_measurements.csv")
+upload <- read_csv("data/upload_speed_measurements.csv")
+details <- read_csv("data/details_for_each_person.csv")
+
+my_kable = function(x, max.rows=5, ...) {
+  kable(x[1:max.rows, ], ...)
+}
+```
+
+
+
+## Data Cleaning
+
+After loading all the required datasets to the environment, we need to filter the datasets based on the requirements. As we only need data from two cities, Samsville and Databury, we need to identify who lives in other cities so we can remove them from the data. We can see only two people lives in Irrelevantsford. 
+
+```{r removing_other_city, echo=FALSE}
+#-------------- looking for person_id who lives in other city except Samsville and Databury
+details %>% filter_at(vars(city), any_vars(. %in% c('Irrelevantsford'))) 
+
+#-------------- removing these persons as we don't need them for the analysis
+download <- download [!(download$person_id == 51815 | download$person_id == 17777),]
+upload <- upload [!(upload$person_id == 51815 | upload$person_id == 17777),]
+```
+After removing those, rows with NA values are removed from datasets. Now we can calculate average download and upload speed for each user. First 5 rows are shown below:
+
+```{r data_cleaning, echo=FALSE}
+#-------------- cleaning data
+#-------------- removing rows with NA values
+upload <- na.omit(upload)
+download <- na.omit(download)
+details <- na.omit(details)
+
+#-------------- saving data of people living in Samsville and Databury
+details <- filter(details, city == "Samsville" | city == "Databury")
+
+#-------------- filtering data based on successful tests and filtering from January on wards
+upload <- filter(upload, did_test_complete_successfully == "TRUE")
+upload <- upload %>%
+                dplyr::filter(time_of_measurement >= as.POSIXct("2021-01-01"))
+
+download <- filter(download, did_test_complete_successfully == "TRUE" )
+download <- download %>%
+                dplyr::filter(time_of_measurement >= as.POSIXct("2021-01-01"))
+```
+
+
+
+```{r counting_avg_each_user, echo=FALSE}
+#---------- calculating average download speed
+avg_download <- download %>%
+  group_by(person_id, ) %>%
+   summarise(Avg_measured_download_speed_in_Mbps=(mean(measured_download_speed_in_Mbps)))
+my_kable(avg_download, 5, caption = "Average Download speed of each user")
+
+#---------- calculating average upload speed
+avg_upload <- upload %>%
+   group_by(person_id) %>%
+   summarise(Avg_measured_upload_speed_in_Mbps=(mean(measured_upload_speed_in_Mbps)))
+my_kable(avg_upload, 5, caption = "Average Upload speed of each user")
+```
+
+## Optional Part
+
+```{r optional_part,echo=FALSE,warning=FALSE,message=FALSE,error=FALSE, results='hide',fig.keep='all'}
+
+#--------- counting mean for upload and download per day
+
+invisible(avg_download_per_day <- download %>%
+  group_by(person_id, time_of_measurement)%>%
+  summarise(Avg_download_speed_per_day = mean(measured_download_speed_in_Mbps))
+)
+invisible(avg_upload_per_day <- upload %>%
+  group_by(person_id, time_of_measurement)%>%
+  summarise(Avg_upload_speed_per_day = mean(measured_upload_speed_in_Mbps))
+)
+#------------ Counting percentile for upload and download and creating table
+invisible(percentile_60_download <- 
+avg_download_per_day %>%
+  group_by(person_id) %>%
+  summarize(percentile_60_download = quantile(Avg_download_speed_per_day, 0.6))
+)
+my_kable(percentile_60_download, 5, caption = "Average download at least 60% of days")
+
+invisible(percentile_60_upload <- 
+avg_upload_per_day %>%
+  group_by(person_id) %>%
+  summarize(percentile_60_upload = quantile(Avg_upload_speed_per_day, 0.6))
+)
+my_kable(percentile_60_upload, 5, caption = "Average upload at least 60% of days")
+
+ 
+
+```
+
+## Data Quality
+
+Few issues:
+1. Missing Data- Number of missing data is in this case is not really high but in case of analysing, few missing data is enough to make the calculation wrong. Moreover, we are counting average speed, minimum speed and maximum speed etc. So missing data is an issue in this case. 
+
+Although, there was no outlier after data was cleaned. 
+
+## Data Summarization and Presentation
+
+Download and upload speed for this report are in Mbps.
+
+```{r tables, echo=FALSE}
+#-------------- creating a table based on filtered data
+table1 <- data.frame(details$person_id, 
+                details$city, 
+                details$type_of_broadband_connection, 
+                details$name_of_isp, 
+                avg_download$Avg_measured_download_speed_in_Mbps, 
+                avg_upload$Avg_measured_upload_speed_in_Mbps)
+colnames(table1) <-c(
+       'Person_id',
+       'city',
+        'connection_type',
+       'ISP_name',
+        'download_speed',
+        'upload_speed'
+       )
+my_kable(table1, 5, caption = "Average download and upload speed for each person")               
+
+table2 <- data.frame(details$person_id, 
+                details$city, 
+                details$type_of_broadband_connection, 
+                details$name_of_isp, 
+                avg_download$Avg_measured_download_speed_in_Mbps,   
+                avg_upload$Avg_measured_upload_speed_in_Mbps,
+                percentile_60_download$percentile_60_download)
+
+colnames(table2) <-c(
+       'Person_id',
+       'city',
+        'connection_type',
+       'ISP_name',
+        'download_speed',
+        'upload_speed',
+       '60th_percentile'
+       )
+my_kable(table2, 5, caption="Average download and upload speed for each person with 60th percentile")
+```
+
+
+```{r plot1, echo=FALSE}
+a <- select(table1, city, connection_type, ISP_name, download_speed)
+
+ggplot(a, aes(x = connection_type, y = download_speed, fill = ISP_name)) +
+  geom_bar(position = 'dodge', stat = 'identity') +
+  facet_grid(~city + ISP_name)+
+  ggtitle("Average Download Speed in Samsville and Databury based on ISP name \nand broadband connection type")+
+  labs(x= "Type of Broadband Connection", y= "Average Download Speed(Mbps)", fill = "Legend")+
+   scale_y_continuous(breaks = seq(0, 250, by = 10))+
+  theme(plot.title = element_text(hjust = 0.5))
+ggsave(path = "output", filename = "fig1.png")
+```
+
+From the plot above, we can see that the people who lives in Samsville and using fibre connection of Fibrelicious has the lowest download speed. But people who uses ADSl type connection from Useus get the the highest download speed. Moreover, in Samsville, performance of Useus is better than Fibrelicious as two of the three type of connection outperform Fibrelicious. 
+
+In case of Databury, scenario is same as Samsville. Useus is outperforming Fibrelicious in every type of connection. 
+
+So overall, we can conclude that, Useus has better download speed in both Samsville and Databury. If a consumer who lives in Databury and have fibre connection, he will get a better speed from Useus. He will get 230 mbps if he use Fibrelicious and 235 mbps if he use Useus.
+
+
+```{r optional_plot, echo=FALSE}
+plot2_df <- merge(download, details, by = "person_id")
+# Create data
+data <- data.frame(
+  x = plot2_df$measured_download_speed_in_Mbps,
+  y = hour(plot2_df$time_of_measurement),
+  z = plot2_df$name_of_isp
+)
+
+
+# Plot
+ggplot(data, aes(x=y, y=x, fill = z))+
+  geom_bar(stat = "identity", position = "dodge")+
+  scale_x_continuous(breaks = seq(0, 24, by = 1))+
+  ggtitle("Differences in download speed by ISP at different times of the day")+
+  labs(x= "Hour of the day", y= "Download Speed(Mbps)", fill = "Name of ISP")
+ggsave(path = "output", filename = "fig2.png")
+```
+
+From the above plot, we can see download speed for each provider are is relatively same throughout the day except between 5 pm - 10 pm. There can be multiple reason for this. One main reason can be number of user increases between this time. Another interesting this is, download speed of Fibrelicious doesn't flactuate that much. On the otherhand, download speed of Useus fluctuates quite a few times. As we already know from previous plots that Useus is a better ISP, it indicates that number of users is higher than Fibrelicious. 
+
